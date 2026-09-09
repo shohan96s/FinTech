@@ -1,0 +1,101 @@
+Date,Card,Merchant,Category,Amount
+06-02-26,HDFC Regalia,Zomato,Food & Dining,760
+06-05-26,HDFC Regalia,DMart,Groceries,2405
+06-06-26,SBI Cashback,Amazon,Shopping,2643
+06-06-26,ICICI Amazon Pay,BigBasket,Groceries,3093
+06-06-26,SBI Cashback,Jio,Bills & Utilities,3760
+06-07-26,Axis Flipkart,Swiggy,Food & Dining,1283
+06-08-26,Axis Flipkart,Flipkart,Shopping,8738
+06-08-26,SBI Cashback,Myntra,Shopping,2290
+06-08-26,Axis Flipkart,Ola,Transport,104
+06-09-26,HDFC Regalia,DMart,Groceries,2709
+06-09-26,Axis Flipkart,Myntra,Shopping,10263
+06-09-26,Axis Flipkart,Spotify,Entertainment,445
+06-09-26,ICICI Amazon Pay,Flipkart,Shopping,5241
+06-10-26,ICICI Amazon Pay,Flipkart,Shopping,1604
+06-11-26,HDFC Regalia,Ola,Transport,1318
+06-11-26,SBI Cashback,Apollo Pharmacy,Health,2874
+06-11-26,SBI Cashback,Mcdonald's,Food & Dining,1218
+06-11-26,HDFC Regalia,Spotify,Entertainment,978
+06-13-26,SBI Cashback,Mcdonald's,Food & Dining,1884
+06-14-26,Axis Flipkart,Swiggy,Food & Dining,546
+06-14-26,HDFC Regalia,Apollo Pharmacy,Health,2718
+06-15-26,Axis Flipkart,Jio,Bills & Utilities,1147
+06-17-26,ICICI Amazon Pay,Shell,Fuel,2971
+06-19-26,ICICI Amazon Pay,Airtel,Bills & Utilities,1510
+06-20-26,SBI Cashback,Airtel,Bills & Utilities,2977
+06-25-26,ICICI Amazon Pay,Jio,Bills & Utilities,739
+06-26-26,Axis Flipkart,Apollo Pharmacy,Health,1202
+06-27-26,ICICI Amazon Pay,DMart,Groceries,3115
+06-27-26,ICICI Amazon Pay,DMart,Groceries,1387
+06-28-26,SBI Cashback,BookMyShow,Entertainment,635
+06-28-26,HDFC Regalia,Spotify,Entertainment,1349
+06-29-26,Axis Flipkart,Uber,Transport,286
+07-01-26,Axis Flipkart,Airtel,Bills & Utilities,1377
+07-01-26,HDFC Regalia,BookMyShow,Entertainment,375
+07-02-26,SBI Cashback,Zomato,Food & Dining,2443
+07-02-26,ICICI Amazon Pay,Netflix,Entertainment,1298
+07-02-26,ICICI Amazon Pay,Spotify,Entertainment,1708
+07-04-26,HDFC Regalia,Zomato,Food & Dining,2416
+07-05-26,ICICI Amazon Pay,Swiggy,Food & Dining,2337
+07-06-26,ICICI Amazon Pay,Starbucks,Food & Dining,458
+07-06-26,ICICI Amazon Pay,Uber,Transport,789
+07-06-26,SBI Cashback,Starbucks,Food & Dining,816
+07-07-26,Axis Flipkart,Ola,Transport,1212
+07-09-26,ICICI Amazon Pay,IndianOil,Fuel,2052
+07-11-26,HDFC Regalia,Swiggy,Food & Dining,2027
+07-11-26,SBI Cashback,Myntra,Shopping,1584
+07-12-26,HDFC Regalia,Shell,Fuel,1716
+07-12-26,ICICI Amazon Pay,Flipkart,Shopping,1025
+07-15-26,ICICI Amazon Pay,Swiggy,Food & Dining,1663
+07-16-26,SBI Cashback,BigBasket,Groceries,477
+07-17-26,ICICI Amazon Pay,Jio,Bills & Utilities,737
+07-18-26,ICICI Amazon Pay,BigBasket,Groceries,3045
+07-18-26,HDFC Regalia,Ola,Transport,1326
+07-19-26,ICICI Amazon Pay,Airtel,Bills & Utilities,3304
+07-20-26,Axis Flipkart,Airtel,Bills & Utilities,1668
+07-21-26,SBI Cashback,Uber,Transport,1036
+07-23-26,HDFC Regalia,Starbucks,Food & Dining,553
+07-23-26,ICICI Amazon Pay,Decathlon,Shopping,4378
+07-25-26,Axis Flipkart,Apollo Pharmacy,Health,934
+07-25-26,HDFC Regalia,Flipkart,Shopping,2035
+07-25-26,Axis Flipkart,BookMyShow,Entertainment,941
+07-27-26,HDFC Regalia,Apollo Pharmacy,Health,507
+07-27-26,Axis Flipkart,Apollo Pharmacy,Health,2597
+07-28-26,SBI Cashback,BookMyShow,Entertainment,213
+07-28-26,ICICI Amazon Pay,Zomato,Food & Dining,1070
+07-28-26,Axis Flipkart,Uber,Transport,475
+07-29-26,SBI Cashback,Amazon,Shopping,8701
+07-30-26,SBI Cashback,IndianOil,Fuel,894
+07-31-26,ICICI Amazon Pay,Mcdonald's,Food & Dining,536
+08-02-26,ICICI Amazon Pay,Shell,Fuel,4085
+08-07-26,Axis Flipkart,Decathlon,Shopping,3970
+08-07-26,HDFC Regalia,Ola,Transport,1140
+08-08-26,SBI Cashback,Netflix,Entertainment,471
+08-09-26,Axis Flipkart,Uber,Transport,597
+08-09-26,SBI Cashback,Netflix,Entertainment,1017
+08-09-26,SBI Cashback,Flipkart,Shopping,10043
+08-10-26,Axis Flipkart,Uber,Transport,361
+08-10-26,HDFC Regalia,Jio,Bills & Utilities,1050
+08-10-26,ICICI Amazon Pay,Spotify,Entertainment,214
+08-12-26,HDFC Regalia,Spotify,Entertainment,1468
+08-14-26,HDFC Regalia,Apollo Pharmacy,Health,1584
+08-19-26,HDFC Regalia,BookMyShow,Entertainment,350
+08-19-26,ICICI Amazon Pay,BigBasket,Groceries,3185
+08-20-26,Axis Flipkart,Ola,Transport,1321
+08-21-26,Axis Flipkart,Airtel,Bills & Utilities,1528
+08-21-26,ICICI Amazon Pay,Airtel,Bills & Utilities,3536
+08-21-26,HDFC Regalia,Zomato,Food & Dining,1276
+08-23-26,HDFC Regalia,Apollo Pharmacy,Health,682
+08-23-26,Axis Flipkart,Shell,Fuel,4558
+08-25-26,Axis Flipkart,BigBasket,Groceries,2419
+08-27-26,SBI Cashback,Zomato,Food & Dining,1543
+08-30-26,HDFC Regalia,Jio,Bills & Utilities,3235
+09-02-26,HDFC Regalia,Shell,Fuel,1830
+09-02-26,ICICI Amazon Pay,Spotify,Entertainment,1146
+09-02-26,HDFC Regalia,Starbucks,Food & Dining,1700
+09-04-26,SBI Cashback,Apollo Pharmacy,Health,2694
+09-05-26,HDFC Regalia,Flipkart,Shopping,3004
+09-05-26,ICICI Amazon Pay,Spotify,Entertainment,1032
+09-06-26,HDFC Regalia,Ola,Transport,1380
+09-06-26,Axis Flipkart,Ola,Transport,796
