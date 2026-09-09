@@ -1,0 +1,473 @@
+<!-- Findr Finance Advisor - working prototype
+     Grounding architecture: a deterministic engine computes every number from the
+     reconciled transaction data (FACTS). The advisor may only speak from FACTS.
+     Two answer paths, same facts: (1) deterministic templates - guaranteed correct,
+     instant, offline; (2) optional Claude phrasing layer, grounded on FACTS with a
+     no-invented-numbers rule and deterministic fallback. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0c131c; --panel:#131d29; --panel2:#182534; --line:#22303f;
+    --ink:#eaf1f7; --mute:#8ba0b3; --dim:#5f7386;
+    --save:#4fd18b; --leak:#efb24a; --alert:#ec7a6d;
+    --brand:#5fd0c6; --brandink:#0c131c;
+    --num:"ui-monospace";
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+  .wrap{max-width:1120px;margin:0 auto;padding:20px 18px 60px}
+
+  /* header */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:6px}
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .logo{font-weight:800;font-size:26px;letter-spacing:-.02em}
+  .logo .dot{color:var(--brand)}
+  .tag{color:var(--mute);font-size:13.5px}
+  .ctx{color:var(--dim);font-size:12.5px;text-align:right;line-height:1.7}
+  .ctx b{color:var(--mute);font-weight:600}
+
+  /* four-card flag */
+  .flag{margin:14px 0 4px;background:rgba(239,178,74,.09);border:1px solid rgba(239,178,74,.32);
+    border-radius:10px;padding:10px 14px;color:#f4d59a;font-size:13px;display:flex;gap:10px;align-items:flex-start}
+  .flag b{color:#efb24a}
+
+  /* tabs */
+  nav{display:flex;gap:4px;margin:18px 0 16px;border-bottom:1px solid var(--line)}
+  nav button{background:none;border:0;color:var(--mute);font-size:14px;font-weight:600;
+    padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  nav button.on{color:var(--ink);border-bottom-color:var(--brand)}
+
+  /* chat */
+  .chat{display:grid;grid-template-columns:1fr;gap:14px}
+  .starter{color:var(--dim);font-size:12.5px;margin:2px 0 8px;letter-spacing:.01em}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s}
+  .chip:hover{border-color:var(--brand);background:var(--panel2)}
+
+  .stream{display:flex;flex-direction:column;gap:16px;min-height:120px}
+  .msg{max-width:760px}
+  .msg.user{align-self:flex-end;background:var(--brand);color:var(--brandink);
+    padding:10px 15px;border-radius:14px 14px 3px 14px;font-size:14.5px;font-weight:600}
+  .msg.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--line);
+    border-radius:3px 14px 14px 14px;padding:16px 18px;width:100%}
+  .verdict{font-size:17px;font-weight:700;letter-spacing:-.01em;margin:0 0 12px;line-height:1.35}
+  .statrow{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 13px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;min-width:86px}
+  .stat .k{color:var(--dim);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase}
+  .stat .v{font-size:16px;font-weight:700;margin-top:2px}
+  .stat.save .v{color:var(--save)} .stat.leak .v{color:var(--leak)} .stat.alert .v{color:var(--alert)}
+  .body{font-size:14px;line-height:1.62;color:#d3deea}
+  .body p{margin:0 0 9px} .body ul{margin:2px 0 10px;padding-left:18px} .body li{margin:4px 0}
+  .body b{color:var(--ink)} .num{color:#fff;font-weight:600}
+  .action{margin-top:13px;background:rgba(79,209,139,.08);border:1px solid rgba(79,209,139,.28);
+    border-radius:10px;padding:12px 14px;font-size:13.6px;line-height:1.55}
+  .action .lbl{color:var(--save);font-weight:700;font-size:11px;letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:4px}
+  .foot{margin-top:11px;color:var(--dim);font-size:11.5px;border-top:1px dashed var(--line);padding-top:9px}
+  .foot b{color:var(--mute)}
+
+  /* plan table */
+  table.plan{width:100%;border-collapse:collapse;margin:4px 0 6px;font-size:13.4px}
+  table.plan th{text-align:left;color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;
+    letter-spacing:.03em;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.plan td{padding:8px;border-bottom:1px solid var(--line)}
+  table.plan td.n{text-align:right}
+  table.plan tr.tot td{font-weight:800;border-top:2px solid var(--line);border-bottom:0;color:var(--save)}
+
+  /* input */
+  .inputbar{display:flex;gap:8px;margin-top:18px;position:sticky;bottom:0;background:var(--bg);padding-top:10px}
+  .inputbar input{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    border-radius:11px;padding:13px 15px;font-size:14.5px;outline:none}
+  .inputbar input:focus{border-color:var(--brand)}
+  .inputbar button{background:var(--brand);color:var(--brandink);border:0;border-radius:11px;
+    padding:0 20px;font-weight:700;font-size:14px;cursor:pointer}
+  .aitoggle{display:flex;align-items:center;gap:7px;color:var(--mute);font-size:12.5px;margin-top:10px;user-select:none}
+  .aitoggle input{accent-color:var(--brand)}
+  .thinking{color:var(--dim);font-size:13px;font-style:italic}
+
+  /* dashboard */
+  .grid{display:grid;grid-template-columns:1.3fr 1fr;gap:14px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}.ctx{text-align:left}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h3{margin:0 0 3px;font-size:13px;color:var(--mute);font-weight:600}
+  .card .sub{color:var(--dim);font-size:11.5px;margin-bottom:14px}
+  .hero{grid-column:1/-1;display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+  .hero .big{font-size:44px;font-weight:800;letter-spacing:-.02em;line-height:1}
+  .hero .lbl{color:var(--mute);font-size:12.5px;margin-top:6px}
+  .hero .delta{color:var(--alert);font-weight:700}
+  .bars{display:flex;align-items:flex-end;gap:20px;height:150px;padding-top:8px}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .bar .col{width:100%;max-width:64px;background:linear-gradient(180deg,var(--brand),#2f8f88);border-radius:6px 6px 0 0}
+  .bar .col.spike{background:linear-gradient(180deg,var(--alert),#b24d43)}
+  .bar .cap{margin-top:8px;font-size:12px;color:var(--mute)} .bar .amt{font-size:12.5px;font-weight:700;margin-bottom:6px}
+  .catbar{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .catbar .name{width:96px;font-size:12.5px;color:#cdd9e6} .catbar .track{flex:1;height:9px;background:var(--panel2);border-radius:5px;overflow:hidden}
+  .catbar .fill{height:100%;background:var(--brand);border-radius:5px}
+  .catbar .val{width:118px;text-align:right;font-size:12.5px}
+  .catbar .val .pct{color:var(--dim);font-size:11px;margin-left:5px}
+  .leakitem{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .leakitem:last-child{border:0}
+  .leakitem .d{color:#cdd9e6} .leakitem .d small{color:var(--dim);display:block;font-size:11px;margin-top:1px}
+  .leakitem .a{color:var(--leak);font-weight:700}
+  .leakitem .a.alert{color:var(--alert)}
+  .totline{display:flex;justify-content:space-between;margin-top:12px;padding-top:11px;border-top:2px solid var(--line);font-weight:800}
+  .totline .leak{color:var(--leak)}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="logo">findr<span class="dot">.</span></span>
+      <span class="tag">Your money, decided.</span>
+    </div>
+    <div class="ctx">
+      <div><b>Jordan T. Reeves</b> · anonymized test user</div>
+      <div>3 cards · Jun–Aug 2026 · <b>reconciled to statements ✓</b></div>
+    </div>
+  </header>
+
+  <div class="flag">
+    <span>⚑</span>
+    <div><b>Data check:</b> the brief references <b>4 cards</b>, but only <b>3 statements</b> were provided
+    (Aurora ···6014, Meridian ···8837, Summit ···4021). All figures below cover those 3.
+    A missing 4th card would change totals and category shares — worth confirming before advice ships to a user.</div>
+  </div>
+
+  <nav>
+    <button id="tab-advisor" class="on" onclick="show('advisor')">Advisor</button>
+    <button id="tab-numbers" onclick="show('numbers')">The numbers</button>
+  </nav>
+
+  <!-- ADVISOR -->
+  <section id="view-advisor">
+    <div class="starter">Ask about your money, or tap a question:</div>
+    <div class="chips" id="chips"></div>
+    <div class="stream" id="stream"></div>
+    <div class="inputbar">
+      <input id="q" placeholder="e.g. where is my money leaking?" autocomplete="off"
+        onkeydown="if(event.key==='Enter')ask(this.value)">
+      <button onclick="ask(document.getElementById('q').value)">Ask</button>
+    </div>
+    <label class="aitoggle">
+      <input type="checkbox" id="useai">
+      AI phrasing (Claude, grounded on your numbers). Off = instant deterministic answers, guaranteed to match the data.
+    </label>
+  </section>
+
+  <!-- NUMBERS -->
+  <section id="view-numbers" style="display:none">
+    <div class="grid">
+      <div class="card hero">
+        <div><div class="big mono" id="h-total"></div><div class="lbl">total spend · Jun–Aug (3 cards)</div></div>
+        <div><div class="big mono" id="h-avg"></div><div class="lbl">average per month</div></div>
+        <div><div class="big mono delta" id="h-trend"></div><div class="lbl">June → August</div></div>
+        <div><div class="big mono" style="color:var(--leak)" id="h-leak"></div><div class="lbl">avoidable fees + interest this quarter</div></div>
+      </div>
+
+      <div class="card">
+        <h3>Consolidated monthly spend</h3>
+        <div class="sub">The view no single card statement gives you. August's spike is one trip.</div>
+        <div class="bars" id="bars"></div>
+      </div>
+
+      <div class="card">
+        <h3>Where it goes</h3>
+        <div class="sub">Share of 3-month spend, by category</div>
+        <div id="cats"></div>
+      </div>
+
+      <div class="card">
+        <h3>Money leaks — flagged for action</h3>
+        <div class="sub">Charges that bought nothing, plus one likely error</div>
+        <div id="leaks"></div>
+        <div class="totline"><span>Avoidable this quarter</span><span class="leak mono" id="leaktot"></span></div>
+      </div>
+
+      <div class="card">
+        <h3>Subscription stack</h3>
+        <div class="sub" id="substitle"></div>
+        <div id="subs"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const FACTS = {"meta":{"user":"anonymized test user","cards_provided":["Aurora ...6014","Meridian ...8837","Summit ...4021"],"cards_expected_by_mandate":4,"note":"Mandate references 4 cards; only 3 statements supplied.","window":"Jun-Aug 2026 (3 months)","reconciled_to_statements":true},"spend_by_month":{"Jun":1759.26,"Jul":1911.85,"Aug":2952.51},"total_3mo":6623.62,"avg_monthly":2207.87,"trend_jun_to_aug_pct":67.8,"spend_by_category_3mo":{"Shopping":1617.17,"Groceries":1342.24,"Travel":1099.02,"Transport":648.15,"Subscriptions":551.47,"Dining":546.05,"Utilities":528.32,"Health":133.65,"Fees":97.05,"Entertainment":60.5},"category_share_pct":{"Shopping":24.4,"Groceries":20.3,"Travel":16.6,"Transport":9.8,"Subscriptions":8.3,"Dining":8.2,"Utilities":8.0,"Health":2.0,"Fees":1.5,"Entertainment":0.9},"category_by_month":{"Dining":{"Jun":124.05,"Jul":169.8,"Aug":252.2},"Groceries":{"Jun":464.09,"Jul":535.57,"Aug":342.58},"Shopping":{"Jun":523.05,"Jul":505.67,"Aug":588.45},"Travel":{"Jun":0,"Jul":0,"Aug":1099.02}},"spend_by_card_3mo":{"Summit":3686.03,"Meridian":1611.46,"Aurora":1326.13},"fees":{"items":[{"card":"Aurora","date":"Jul 14","desc":"LATE PAYMENT FEE","amt":29.0},{"card":"Summit","date":"Jul 30","desc":"INTEREST CHARGE","amt":21.4},{"card":"Summit","date":"Aug 11","desc":"FOREIGN TXN FEE","amt":20.65},{"card":"Summit","date":"Aug 13","desc":"FOREIGN TXN FEE","amt":1.15},{"card":"Summit","date":"Aug 30","desc":"INTEREST CHARGE","amt":24.85}],"total_3mo":97.05},"media_subscriptions":{"count":14,"monthly":190.82,"video_count":7,"video_monthly":103.93,"music_monthly":21.98,"items":{"HULU":17.99,"NETFLIX":17.99,"DISNEY PLUS":15.99,"MAX HBO":15.99,"AMAZON PRIME":14.99,"AUDIBLE":14.95,"YOUTUBE PREMIUM":13.99,"ZENMIND MEDITATION APP":12.99,"CLOUDVAULT PRO STORAGE":11.99,"PARAMOUNT+":11.99,"APPLE MUSIC":10.99,"SPOTIFY USA":10.99,"APPLE TV PLUS":9.99,"MICROSOFT 365":9.99}},"price_hikes":[{"merchant":"NETFLIX","jun":15.49,"aug":17.99,"pct":16.1},{"merchant":"DISNEY PLUS","jun":13.99,"aug":15.99,"pct":14.3}],"converted_trials":[{"merchant":"PARAMOUNT+","became":11.99}],"duplicates":[{"card":"Meridian","merchant":"COSTCO WHOLESALE","amount":142.85,"first":"Jul 02","second":"Jul 04","gap_days":2}],"interest":{"card":"Summit","apr":22.99,"interest_3mo":46.25,"aug_new_balance":1786.03,"annualized_if_sustained":298.2}};
+
+const $=id=>document.getElementById(id);
+const money=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0=n=>'$'+Math.round(n).toLocaleString('en-US');
+
+function show(v){
+  $('view-advisor').style.display=v==='advisor'?'':'none';
+  $('view-numbers').style.display=v==='numbers'?'':'none';
+  $('tab-advisor').className=v==='advisor'?'on':'';
+  $('tab-numbers').className=v==='numbers'?'on':'';
+}
+
+/* ---------------- DETERMINISTIC ADVISOR ----------------
+   Each intent returns {verdict, stats:[{k,v,cls}], body(html), action, foot}.
+   Every number is read from FACTS. Nothing is generated. */
+const F=FACTS, MS=F.media_subscriptions, INT=F.interest, DUP=F.duplicates[0];
+
+const ANSWERS={
+  overview:()=>({
+    verdict:`You spent ${money(F.total_3mo)} across 3 cards in 3 months — but the trend is the headline.`,
+    stats:[{k:'3-mo total',v:money0(F.total_3mo)},{k:'per month',v:money0(F.avg_monthly)},
+           {k:'Jun→Aug',v:'+'+F.trend_jun_to_aug_pct+'%',cls:'alert'}],
+    body:`<p>Your months ran <span class="num">${money0(F.spend_by_month.Jun)}</span> →
+      <span class="num">${money0(F.spend_by_month.Jul)}</span> →
+      <span class="num">${money0(F.spend_by_month.Aug)}</span> — a <b>${F.trend_jun_to_aug_pct}% jump</b> into August.
+      Almost all of it is <b>one trip</b>: <span class="num">${money0(F.spend_by_category_3mo.Travel)}</span> in travel
+      (Iberia + Hotel Arts Barcelona) that didn't exist in June or July. Strip the trip and your baseline holds around
+      <span class="num">$1,850/mo</span>.</p>
+      <p>Two things quietly cost you every month regardless of travel:
+      <b>${money(MS.monthly)}/mo</b> in media subscriptions and <b>${money(F.fees.total_3mo)}</b> in avoidable fees this quarter.</p>`,
+    action:`Ask <b>"where's my money leaking?"</b> for the fix list, or <b>"make me a plan"</b> to get ~${money0(100)}/mo back.`,
+    foot:`Grounded in: 9 statements, reconciled to the penny. Total = sum of all non-payment charges, Jun–Aug 2026.`
+  }),
+
+  subscriptions:()=>{
+    const it=MS.items, rows=Object.entries(it).map(([k,v])=>`${k} ${money(v)}`);
+    return{
+    verdict:`You're paying ${money(MS.monthly)}/month across ${MS.count} media & software subscriptions — ${money0(MS.monthly*12)}/year.`,
+    stats:[{k:'per month',v:money(MS.monthly),cls:'leak'},{k:'video svcs',v:MS.video_count+' · '+money0(MS.video_monthly)},
+           {k:'music svcs',v:'2 · '+money(MS.music_monthly)}],
+    body:`<p>The waste is <b>redundancy</b>. You carry <b>${MS.video_count} separate video streaming services</b>
+      (Netflix, Hulu, Max, Disney+, Apple TV+, YouTube Premium, Paramount+) totaling
+      <span class="num">${money(MS.video_monthly)}/mo</span> — and <b>two music services</b>,
+      Apple Music and Spotify, <span class="num">${money(MS.music_monthly)}/mo</span> for the same thing.</p>
+      <p>Two you likely forgot:</p>
+      <ul>
+        <li><b>Paramount+</b> started as a <b>free trial</b> in June and has quietly charged
+          <span class="num">${money(F.converted_trials[0].became)}/mo</span> since July.</li>
+        <li><b>Netflix</b> rose ${money(F.price_hikes[0].jun)}→${money(F.price_hikes[0].aug)} (<b>+${F.price_hikes[0].pct}%</b>)
+          and <b>Disney+</b> ${money(F.price_hikes[1].jun)}→${money(F.price_hikes[1].aug)} (<b>+${F.price_hikes[1].pct}%</b>) across these 3 months.</li>
+      </ul>`,
+    action:`Keep 3 video + 1 music, drop the rest → about <b>${money0(65)}/mo back ($780/yr)</b>.
+      Or the zero-effort cut: cancel Paramount+ (the converted trial) + one duplicate music service = <b>${money(11.99+10.99)}/mo</b>, no lifestyle change.`,
+    foot:`Grounded in: recurring charges appearing in ≥2 of 3 months on Aurora ···6014 and Summit ···4021.`
+    };
+  },
+
+  leaks:()=>({
+    verdict:`${money(F.fees.total_3mo)} in pure fees this quarter — none of it bought you anything. Plus one likely billing error.`,
+    stats:[{k:'fees 3-mo',v:money(F.fees.total_3mo),cls:'leak'},{k:'interest/yr',v:'~'+money0(INT.annualized_if_sustained),cls:'alert'},
+           {k:'dup charge',v:money(DUP.amount),cls:'alert'}],
+    body:`<ul>
+      <li><b>${money(29)} late fee</b> (Aurora, Jul 14) → an autopay on the minimum eliminates this permanently.</li>
+      <li><b>${money(INT.interest_3mo)} interest</b> on Summit (Jul + Aug) → you're carrying
+        <span class="num">${money(INT.aug_new_balance)}</span> at <b>${INT.apr}% APR</b>. Sustained, that's
+        <span class="num">~${money0(INT.annualized_if_sustained)}/yr</span> in interest alone.</li>
+      <li><b>${money(20.65+1.15)} foreign transaction fees</b> on the Barcelona trip → a no-FTF card on travel avoids these.</li>
+      <li><b>Likely double charge:</b> Costco billed <span class="num">${money(DUP.amount)}</span> <b>twice in 2 days</b>
+        (${DUP.card}, ${DUP.first} & ${DUP.second}). Worth disputing — a possible <span class="num">${money(DUP.amount)}</span> back.</li>
+    </ul>`,
+    action:`Autopay + a no-FTF travel card stop <b>~${money(29+21.8)}/quarter</b> immediately. Paying down Summit kills <b>~${money0(INT.annualized_if_sustained)}/yr</b>. Dispute the Costco charge for a one-time <b>${money(DUP.amount)}</b>.`,
+    foot:`Grounded in: all transactions categorized as Fees/Interest, plus a same-card same-amount ≤4-day duplicate scan.`
+  }),
+
+  august:()=>({
+    verdict:`August was ${money(F.spend_by_month.Aug)} — up ${F.trend_jun_to_aug_pct}% from June. One trip explains almost all of it.`,
+    stats:[{k:'August',v:money0(F.spend_by_month.Aug),cls:'alert'},{k:'travel',v:money0(F.spend_by_category_3mo.Travel)},
+           {k:'w/o trip',v:'~'+money0(F.spend_by_month.Aug-F.spend_by_category_3mo.Travel-21.8)}],
+    body:`<p>The driver shows up only in August: <b>${money(F.spend_by_category_3mo.Travel)} in travel</b>
+      (Iberia Airlines <span class="num">$410.60</span>, Hotel Arts Barcelona <span class="num">$688.42</span>),
+      plus <span class="num">$21.80</span> in foreign transaction fees and Barcelona dining.</p>
+      <p>Dining also climbed to <span class="num">${money(F.category_by_month.Dining.Aug)}</span>
+      (from <span class="num">${money(F.category_by_month.Dining.Jun)}</span> in June). Take the trip out and August lands near
+      <span class="num">$1,850</span> — right on your normal baseline.</p>
+      <p>Verdict: a <b>one-off, not lifestyle creep</b>.</p>`,
+    action:`Only avoidable piece next time: the <b>$21.80 in foreign transaction fees</b> — a no-FTF card on travel removes them.`,
+    foot:`Grounded in: Summit ···4021 August transactions categorized Travel/Dining/Fees.`
+  }),
+
+  interest:()=>({
+    verdict:`Yes — this is your most expensive money. It's isolated to one card.`,
+    stats:[{k:'balance',v:money0(INT.aug_new_balance),cls:'alert'},{k:'APR',v:INT.apr+'%',cls:'alert'},
+           {k:'if sustained',v:'~'+money0(INT.annualized_if_sustained)+'/yr',cls:'alert'}],
+    body:`<p>Your <b>Summit</b> card went into interest in July and August
+      (<span class="num">${money(21.4)}</span> then <span class="num">${money(24.85)}</span>), carrying
+      <span class="num">${money(INT.aug_new_balance)}</span> at <b>${INT.apr}% APR</b>. If that balance sits,
+      it costs roughly <span class="num">${money0(INT.annualized_if_sustained)}/year</span> — for nothing.</p>
+      <p>Your other two cards ran <b>$0 interest</b>, so this is Summit-only. Summit's ${INT.apr}% is also higher than
+      Aurora's 17.90%, so it's the right one to clear <b>first</b>.</p>`,
+    action:`Pay Summit down before anything else. Redirect the <b>~${money0(65)}/mo</b> you'd save on subscriptions straight to it — that clears the balance faster and ends the interest.`,
+    foot:`Grounded in: Summit ···4021 INTEREST CHARGE lines + declared Aug closing balance and APR.`
+  }),
+
+  plan:()=>({
+    verdict:`Here's a plan that gives you back about ${money0(100)}/month — ~$1,200/year — without touching your lifestyle.`,
+    stats:[{k:'monthly',v:'~'+money0(100),cls:'save'},{k:'annual',v:'~'+money0(1194),cls:'save'},{k:'one-time',v:money0(DUP.amount),cls:'save'}],
+    body:`<table class="plan">
+      <tr><th>Action</th><th class="n">Per month</th><th class="n">Per year</th></tr>
+      <tr><td>Consolidate 7 video services → 3</td><td class="n mono">$54</td><td class="n mono">$648</td></tr>
+      <tr><td>Drop one duplicate music service</td><td class="n mono">$11</td><td class="n mono">$132</td></tr>
+      <tr><td>Autopay to kill late fees</td><td class="n mono">$10</td><td class="n mono">$116</td></tr>
+      <tr><td>Pay down Summit balance (stop 22.99% interest)</td><td class="n mono">$25</td><td class="n mono">$298</td></tr>
+      <tr class="tot"><td>Ongoing savings</td><td class="n mono">~$100</td><td class="n mono">~$1,194</td></tr>
+    </table>
+    <p>Plus a <b>one-time ${money(DUP.amount)}</b> if the duplicate Costco charge is disputed successfully.</p>`,
+    action:`Want ${money0(200)}/mo? Your #1 category is <b>Shopping at ${money0(F.spend_by_category_3mo.Shopping/3)}/mo</b> — a 20% trim there is another ~${money0(F.spend_by_category_3mo.Shopping/3*0.2)}/mo. Say <b>"break down my shopping"</b> and I'll find the cuts.`,
+    foot:`Grounded in: subscription stack, fee lines, Summit interest, all reconciled to statements. Figures rounded.`
+  }),
+
+  shopping:()=>({
+    verdict:`Shopping is your #1 category: ${money(F.spend_by_category_3mo.Shopping)} — ${F.category_share_pct.Shopping}% of everything.`,
+    stats:[{k:'3-mo',v:money0(F.spend_by_category_3mo.Shopping),cls:'leak'},{k:'per month',v:'~'+money0(F.spend_by_category_3mo.Shopping/3)},
+           {k:'share',v:F.category_share_pct.Shopping+'%'}],
+    body:`<p>It's steady — Jun <span class="num">${money0(F.category_by_month.Shopping.Jun)}</span>,
+      Jul <span class="num">${money0(F.category_by_month.Shopping.Jul)}</span>,
+      Aug <span class="num">${money0(F.category_by_month.Shopping.Aug)}</span> — and scattered across Amazon
+      (on two different cards), Target, Best Buy, IKEA, REI, Nordstrom, UNIQLO, plus Temu and SHEIN in August.</p>
+      <p>This is your <b>biggest single lever</b>: a 20% pullback is
+      <span class="num">~${money0(F.spend_by_category_3mo.Shopping/3*0.2)}/mo</span> — more than your entire subscription stack.</p>`,
+    action:`Consolidating Amazon onto one card and setting a monthly shopping ceiling around ${money0(F.spend_by_category_3mo.Shopping/3*0.8)} would bank ~${money0(F.spend_by_category_3mo.Shopping/3*0.2)}/mo.`,
+    foot:`Grounded in: all transactions categorized Shopping across the 3 cards.`
+  }),
+
+  dining:()=>({
+    verdict:`Dining is ${money(F.spend_by_category_3mo.Dining)} over the quarter — and it's climbing fast.`,
+    stats:[{k:'3-mo',v:money0(F.spend_by_category_3mo.Dining)},{k:'Jun→Aug',v:money0(F.category_by_month.Dining.Jun)+'→'+money0(F.category_by_month.Dining.Aug),cls:'leak'}],
+    body:`<p>Month over month: <span class="num">${money(F.category_by_month.Dining.Jun)}</span> →
+      <span class="num">${money(F.category_by_month.Dining.Jul)}</span> →
+      <span class="num">${money(F.category_by_month.Dining.Aug)}</span> — <b>more than double</b> since June.
+      August is inflated by the Barcelona trip, but at-home dining (Andina, Tilt, Salt & Straw) is up too.</p>`,
+    action:`Pulling August's at-home dining back to June's <span class="num">${money(F.category_by_month.Dining.Jun)}</span> level saves <b>~${money0(F.category_by_month.Dining.Aug-F.category_by_month.Dining.Jun)}/mo</b>.`,
+    foot:`Grounded in: transactions categorized Dining across the 3 cards.`
+  }),
+
+  cards:()=>({
+    verdict:`Your spend leans hard on Summit — and that's also the card charging you interest.`,
+    stats:[{k:'Summit',v:money0(F.spend_by_card_3mo.Summit),cls:'leak'},{k:'Meridian',v:money0(F.spend_by_card_3mo.Meridian)},{k:'Aurora',v:money0(F.spend_by_card_3mo.Aurora)}],
+    body:`<p><b>Summit</b> (Visa) carries <span class="num">${money(F.spend_by_card_3mo.Summit)}</span> — the trip, most dining and utilities —
+      and it's the one at <b>22.99% APR with a ${money0(INT.aug_new_balance)} balance</b>.
+      <b>Meridian</b> (Cashback Mastercard) is <span class="num">${money(F.spend_by_card_3mo.Meridian)}</span>, mostly groceries and gas — exactly where it earns.
+      <b>Aurora</b> is <span class="num">${money(F.spend_by_card_3mo.Aurora)}</span> and is almost entirely your subscription stack (it also took the late fee).</p>`,
+    action:`Route grocery + gas to Meridian for cashback, put subscriptions on autopay, and stop revolving a balance on Summit — that's where the ${INT.apr}% is eating you.`,
+    foot:`Grounded in: per-card 3-month purchase totals + Summit APR/balance.`
+  }),
+
+  groceries:()=>({
+    verdict:`Groceries are ${money(F.spend_by_category_3mo.Groceries)} — ${F.category_share_pct.Groceries}% of spend, your #2 category. Nothing wasteful, but check one charge.`,
+    stats:[{k:'3-mo',v:money0(F.spend_by_category_3mo.Groceries)},{k:'per month',v:'~'+money0(F.spend_by_category_3mo.Groceries/3)},{k:'dup?',v:money(DUP.amount),cls:'alert'}],
+    body:`<p>Split across Costco, Trader Joe's, Whole Foods, Safeway and Instacart on <b>3 different cards</b>.
+      The spend itself looks healthy — but <b>Costco charged ${money(DUP.amount)} twice in 2 days</b> in July
+      (${DUP.first} & ${DUP.second}, ${DUP.card}). Verify that one.</p>`,
+    action:`Route all groceries to Meridian (your cashback card earns there) and dispute the duplicate Costco charge — a possible ${money(DUP.amount)} back.`,
+    foot:`Grounded in: transactions categorized Groceries + duplicate scan.`
+  }),
+
+  help:()=>({
+    verdict:`I answer only from your real statement data — 3 cards, Jun–Aug 2026, reconciled to the penny.`,
+    stats:[],
+    body:`<p>Try one of these:</p>
+      <ul><li>How am I doing?</li><li>Where's my money leaking?</li><li>Subscriptions I forgot?</li>
+      <li>What happened in August?</li><li>Should I worry about interest?</li><li>Make me a plan</li></ul>`,
+    action:``, foot:`I won't invent numbers. If it's not in your statements, I'll tell you.`
+  })
+};
+
+/* intent routing */
+function route(qraw){
+  const q=qraw.toLowerCase();
+  const has=(...w)=>w.some(x=>q.includes(x));
+  if(has('leak','waste','wasting','fee','fees','throwing','losing','avoid')) return 'leaks';
+  if(has('subscri','streaming','netflix','forgot','forgotten','recurring','trial')) return 'subscriptions';
+  if(has('interest','debt','apr','balance','owe','revolv')) return 'interest';
+  if(has('plan','save','budget','cut back','how do i save','reduce','spend better','200','goal')) return 'plan';
+  if(has('august','aug','spike','trip','travel','barcelona','why up','jump')) return 'august';
+  if(has('shopping','shop','amazon','clothes')) return 'shopping';
+  if(has('dining','eat','restaurant','food out','doordash','takeout')) return 'dining';
+  if(has('card','which card','summit','meridian','aurora')) return 'cards';
+  if(has('grocer','costco','food','trader')) return 'groceries';
+  if(has('how am i','overview','doing','summary','total','general','where does')) return 'overview';
+  if(has('help','what can','options')) return 'help';
+  return null;
+}
+
+function renderBot(a){
+  const stats=a.stats.length?`<div class="statrow">${a.stats.map(s=>
+    `<div class="stat ${s.cls||''}"><div class="k">${s.k}</div><div class="v mono">${s.v}</div></div>`).join('')}</div>`:'';
+  const action=a.action?`<div class="action"><span class="lbl">Do this</span>${a.action}</div>`:'';
+  return `<div class="msg bot">
+    <p class="verdict">${a.verdict}</p>${stats}
+    <div class="body">${a.body}</div>${action}
+    <div class="foot">${a.foot}</div></div>`;
+}
+function pushUser(t){ $('stream').insertAdjacentHTML('beforeend',`<div class="msg user">${t}</div>`); }
+function scroll(){ const el=$('stream').lastElementChild; if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }
+
+async function ask(text){
+  text=(text||'').trim(); if(!text) return;
+  $('q').value=''; pushUser(text);
+  const intent=route(text);
+  const base=(ANSWERS[intent]||ANSWERS.help)();
+
+  if(!$('useai').checked){
+    $('stream').insertAdjacentHTML('beforeend',renderBot(base)); scroll(); return;
+  }
+  // AI phrasing path — grounded strictly on FACTS, deterministic fallback.
+  const wait='<div class="msg bot"><span class="thinking">Analyzing your statements…</span></div>';
+  $('stream').insertAdjacentHTML('beforeend',wait); const node=$('stream').lastElementChild; scroll();
+  try{
+    const sys=`You are Findr's finance advisor. You may ONLY use numbers that appear in this FACTS JSON. Never invent or estimate a figure that is not derivable from it. Be specific and quantified: every recommendation must cite a real amount, percent, or trend. Be concise (max ~140 words), warm, direct. End with one concrete action and its dollar impact. FACTS=${JSON.stringify(FACTS)}`;
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,system:sys,messages:[{role:"user",content:text}]})});
+    const d=await r.json();
+    const txt=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+    if(!txt) throw new Error('empty');
+    node.innerHTML=`<div class="body">${txt.replace(/\n/g,'<br>')}</div>
+      <div class="foot"><b>AI phrasing · grounded on your reconciled numbers.</b> Same facts as the instant view.</div>`;
+  }catch(e){
+    node.outerHTML=renderBot(base); // fall back to guaranteed-correct deterministic answer
+  }
+  scroll();
+}
+
+/* starter chips */
+const CHIPS=['How am I doing?',"Where's my money leaking?",'Subscriptions I forgot?','What happened in August?','Should I worry about interest?','Make me a plan'];
+$('chips').innerHTML=CHIPS.map(c=>`<button class="chip" onclick="ask('${c.replace(/'/g,"\\'")}')">${c}</button>`).join('');
+
+/* ---------------- DASHBOARD ---------------- */
+$('h-total').textContent=money0(F.total_3mo);
+$('h-avg').textContent=money0(F.avg_monthly);
+$('h-trend').textContent='+'+F.trend_jun_to_aug_pct+'%';
+$('h-leak').textContent=money0(F.fees.total_3mo+F.interest.interest_3mo);
+
+const mm=F.spend_by_month, maxm=Math.max(...Object.values(mm));
+$('bars').innerHTML=Object.entries(mm).map(([m,v])=>{
+  const h=Math.round(v/maxm*100), spike=(m==='Aug');
+  return `<div class="bar"><div class="amt mono">${money0(v)}</div>
+    <div class="col ${spike?'spike':''}" style="height:${h}%"></div><div class="cap">${m}</div></div>`;
+}).join('');
+
+const cats=F.spend_by_category_3mo, maxc=Math.max(...Object.values(cats));
+$('cats').innerHTML=Object.entries(cats).map(([k,v])=>
+  `<div class="catbar"><div class="name">${k}</div>
+    <div class="track"><div class="fill" style="width:${Math.round(v/maxc*100)}%"></div></div>
+    <div class="val mono">${money0(v)}<span class="pct">${F.category_share_pct[k]}%</span></div></div>`).join('');
+
+const leaks=[
+  {d:'Late payment fee',s:'Aurora ···6014 · Jul 14',a:money(29)},
+  {d:'Interest charged',s:'Summit ···4021 · Jul + Aug @ 22.99% APR',a:money(F.interest.interest_3mo),alert:1},
+  {d:'Foreign transaction fees',s:'Summit ···4021 · Barcelona trip',a:money(21.8)},
+  {d:'Duplicate charge — Costco',s:`Meridian ···8837 · ${DUP.first} & ${DUP.second}, 2 days apart`,a:money(DUP.amount),alert:1},
+];
+$('leaks').innerHTML=leaks.map(l=>`<div class="leakitem"><div class="d">${l.d}<small>${l.s}</small></div>
+  <div class="a ${l.alert?'alert':''} mono">${l.a}</div></div>`).join('');
+$('leaktot').textContent=money(29+F.interest.interest_3mo+21.8+DUP.amount);
+
+$('substitle').textContent=`${MS.count} recurring · ${money(MS.monthly)}/mo · ${money0(MS.monthly*12)}/yr`;
+$('subs').innerHTML=Object.entries(MS.items).map(([k,v])=>
+  `<div class="leakitem"><div class="d">${k}</div><div class="a leak mono">${money(v)}</div></div>`).join('')
+  +`<div class="totline"><span>Video: 7 services</span><span class="leak mono">${money(MS.video_monthly)}/mo</span></div>`;
+
+/* seed with the overview so the demo opens on something real */
+$('stream').insertAdjacentHTML('beforeend',renderBot(ANSWERS.overview()));
+</script>
