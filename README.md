@@ -4,8 +4,6 @@
 
 **🔗 Live Demo:** https://shohan96s.github.io/FinTech/
 
-![findr dashboard](docs/screenshot.png) <!-- Add a screenshot of the dashboard here -->
-
 ---
 
 ## 📌 Problem
